@@ -1,0 +1,1210 @@
+#include <iostream>
+#include <iomanip>
+#include<fstream>
+#include <vector>
+#include "ReadInput.h"
+#include <cctype>
+
+using namespace std;
+
+
+enum enStartScreen {eLogin = 1 , eSiginUp = 2 , eClose = 3};
+enum enRole {eManeger = 1 , eUser = 2};
+enum enManegerControlScreen {
+	eShowAccounts = 1, eDeletAccount = 2, eShowBooks = 3
+	, eEditBooks = 4, eShowHighlyRintedBooks = 5 , eShowProfits = 6 ,  eLogout = 7
+};
+enum enUserScreen {
+	eShowLipraryBooks = 1, eMyBalance = 2, eShowMyBooks = 3, eRintBook = 4 , eEditAccountInfo = 5
+	, eUserLogout = 6
+};
+
+const string LipraryBooksDataFileName = "LipraryBooks.txt";
+const string LipraryAccountsDataFileName = "LipraryClients.txt";
+
+struct stBookInfo
+{
+	string ID = "";
+	string Name = "";
+	float Price = 0;
+	float RentalDailyPrice = 0;
+	string Author = "";
+	string Genre = "";
+	string YearOfPublication = "";
+	bool ToDelete = false;
+	short RintedScore = 0;
+};
+struct stAccountInfo
+{
+	string UserName= "";
+	string PASSWORD = "";
+	string FullName = "";
+	enRole Role;
+	float Balance = 0;
+	vector<string>BooksRented;
+	bool ToDelete = false;
+
+};
+
+//Definetions
+void StartScreen(vector <stAccountInfo>& vAccounts, vector <stBookInfo>& vBooks);
+void LoginScreenLogic(vector <stAccountInfo>& vAccounts,vector<stBookInfo>& vBooks ,  string UserName, string Password);
+void ShowSignUpScreen(vector <stAccountInfo>& vAccounts);
+void ShowManegerMainScreen(vector <stAccountInfo>& vAccounts, vector<stBookInfo>& vBooks, stAccountInfo Account);
+void StartScreen(vector <stAccountInfo>& vAccounts, vector<stBookInfo>& vBooks);
+void ShowUserMainScreen(stAccountInfo& Account, vector <stBookInfo>& vBooks, vector <stAccountInfo>& vAccounts);
+void SetBooksRintedScore(vector <stBookInfo>& vBooks, const vector <stAccountInfo>& vAccounts);
+
+
+void GoToBackMenueMessege()
+{
+	cout << "\nPress any key to go back to Main Menue ";
+	system("pause>0");
+}
+
+vector <string> SplitString(string S , string Delim = "#//#" )
+{
+	vector <string> vString;
+	
+	string Word = "";
+	short pos = 0;
+
+	while ((pos = S.find(Delim)) != std::string::npos)
+	{
+		Word = S.substr(0, pos);
+		
+		vString.push_back(Word);
+
+		S.erase(0, (pos + Delim.length()));
+
+	}
+	if (S != "")
+	{
+		vString.push_back(S);
+	}
+
+	return vString;
+	
+
+
+}
+
+enRole StringToRole(string S)
+{
+	if (S == "Maneger")
+	{
+		return enRole::eManeger;
+	}
+	else if (S == "User")
+	{
+		return enRole::eUser;
+	}
+
+}
+
+string RoleToString(enRole Role)
+{
+	switch (Role)
+	{
+	case eManeger:
+		return "Maneger";
+		break;
+	case eUser:
+		return "User";
+		break;
+	}
+}
+
+void ConvertAccountsLineToRecord(stAccountInfo& Account, string Line)
+{
+	vector <string> vData = SplitString(Line);
+
+
+	Account.UserName = vData[0];
+	Account.PASSWORD = vData[1];
+	Account.FullName = vData[2];
+	Account.Role = StringToRole(vData[3]);
+
+	if (Account.Role != enRole::eManeger)
+	{
+		Account.Balance = stof(vData[4]);
+
+		Account.BooksRented.clear();
+		//Adding Rented Books By User
+		for (int i = 5; i < vData.size(); i++)
+		{
+			Account.BooksRented.push_back(vData[i]);
+		}
+	}
+	
+
+
+}
+
+void ConvertAccountsRecordToLine(stAccountInfo Account, string& Line,string Delim = "#//#")
+{
+	Line = "";
+
+	Line += Account.UserName+ Delim;
+	Line += Account.PASSWORD + Delim;
+	Line += Account.FullName + Delim;
+	Line += RoleToString(Account.Role);
+
+	if (Account.Role != enRole::eManeger)
+	{
+		Line += Delim;
+
+		Line += to_string(Account.Balance) + Delim;
+
+		for (short i = 0; i < Account.BooksRented.size(); i++)
+		{
+			Line += Account.BooksRented[i];
+			if (i != Account.BooksRented.size() - 1)
+			{
+				Line += Delim;
+			}
+		}
+	}
+	
+}
+
+void ConvertBooksLineToRecord(stBookInfo& Book, string Line)
+{
+	vector <string> vData = SplitString(Line);
+	
+
+	Book.ID = vData[0];
+	Book.Name = vData[1];
+	Book.Price = stof(vData[2]);
+	Book.RentalDailyPrice = stof(vData[3]);
+	Book.Author = vData[4];
+	Book.Genre = vData[5];
+	Book.YearOfPublication = vData[6];
+}
+
+void ConvertBooksRecordToLine(stBookInfo Book, string& Line, string Delim = "#//#")
+{
+	Line = "";
+	Line += Book.ID + Delim;
+	Line += Book.Name + Delim;
+	Line += to_string(Book.Price) + Delim;
+	Line += to_string(Book.RentalDailyPrice) + Delim;
+	Line += Book.Author + Delim;
+	Line += Book.Genre + Delim;
+	Line += Book.YearOfPublication;
+	
+}
+
+void LoadDataFromAccountsFileToVector(string FileName , vector <stAccountInfo> &vAccounts)
+{
+	if (vAccounts.size() != 0)
+	{
+		vAccounts.clear();
+	}
+	fstream MyFile;
+
+	MyFile.open(FileName, ios::in);
+
+	string Line = "";
+
+	stAccountInfo Account;
+
+	if (MyFile.is_open())
+	{
+		while (getline(MyFile, Line))
+		{
+			Account.BooksRented.clear();
+
+			ConvertAccountsLineToRecord(Account, Line);
+			vAccounts.push_back(Account);
+		}
+		MyFile.close();
+	}
+	else
+	{
+		cout << "Couldn't Open File : " << FileName << endl;
+	}
+	
+
+
+
+}
+
+void LoadDataFromBooksFileToVector(string FileName, vector <stBookInfo>& vBooks)
+{
+	if (vBooks.size() != 0)
+	{
+		vBooks.clear();
+	}
+	fstream MyFile;
+
+	MyFile.open(FileName, ios::in);
+
+	string Line = "";
+
+	stBookInfo Book;
+
+	if (MyFile.is_open())
+	{
+		while (getline(MyFile, Line))
+		{
+			ConvertBooksLineToRecord(Book, Line);
+			vBooks.push_back(Book);
+		}
+		MyFile.close();
+	}
+	else
+	{
+		cout << "Couldn't Open File : " << FileName << endl;
+	}
+
+
+
+
+}
+
+bool FindAccountByUserName(vector <stAccountInfo>& vAccounts, string UserName)
+{
+	for (stAccountInfo& Acc : vAccounts)
+	{
+		if (Acc.UserName == UserName)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool ScoreUpBookByName(vector <stBookInfo>& vBook, string Name)
+{
+
+	for (stBookInfo& Book : vBook)
+	{
+		if (Book.Name == Name)
+		{
+			Book.RintedScore++;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool MarkAccountToDelete(vector <stAccountInfo>& vAccounts, stAccountInfo Account , string UserNameForDeleting)
+{
+
+	for (stAccountInfo& Acc : vAccounts)
+	{
+		if (Acc.UserName == UserNameForDeleting)
+		{
+			Acc.ToDelete = true;
+			return true;
+		}
+	}
+	return true;
+
+}
+
+void UpdateDataInFile(string FileName,const vector <stAccountInfo>& vAccounts)
+{
+	fstream MyFile;
+
+	MyFile.open(FileName, ios::out);
+
+	string Line;
+
+	if (MyFile.is_open())
+	{
+		for (stAccountInfo Acc : vAccounts)
+		{
+			if (Acc.ToDelete == false)
+			{
+				ConvertAccountsRecordToLine(Acc, Line);
+
+				MyFile << Line << endl;
+			}
+		}
+		MyFile.close();
+	}
+	else
+	{
+		cout << "Couldn't Open File [" << FileName << "] Try Again" << endl;
+	}
+
+
+
+}
+
+void UpdateDataInFile(string FileName, vector <stBookInfo>& vBooks)
+{
+	fstream MyFile;
+
+	MyFile.open(FileName, ios::out);
+
+	string Line;
+
+	if (MyFile.is_open())
+	{
+		for (stBookInfo& Book : vBooks)
+		{
+			if (Book.ToDelete == false)
+			{
+				ConvertBooksRecordToLine(Book, Line);
+
+				MyFile << Line << endl;
+			}
+		}
+		MyFile.close();
+	}
+	else
+	{
+		cout << "Couldn't Open File [" << FileName << "] Try Again" << endl;
+	}
+
+
+
+}
+
+void DeleteAccountByUserName(vector <stAccountInfo>& vAccounts , vector <stBookInfo>& vBooks, stAccountInfo Account)
+{
+	
+	char DeleteMore = 'Y';
+
+	bool IsSameAccont = false;
+
+	string UserNameToDelete = ""; 
+
+	do
+	{
+		UserNameToDelete = MyInput::ReadString("\nPlease enter User Name To Delete : ");
+		if (!FindAccountByUserName(vAccounts, UserNameToDelete))
+		{
+			cout << "\nInValid User Name " << endl;
+			break;
+		}
+		else
+		{
+
+			IsSameAccont = UserNameToDelete == Account.UserName;
+
+			//cant delete his own account
+			if (IsSameAccont)
+			{
+				cout << "\nYou Cant Delte Your Own Account , Ask another Maneger to delete it for you\n";
+				break;
+			}
+
+			MarkAccountToDelete(vAccounts, Account, UserNameToDelete);
+
+			UpdateDataInFile(LipraryAccountsDataFileName, vAccounts);
+
+			//Refreshing Data
+			LoadDataFromAccountsFileToVector(LipraryAccountsDataFileName, vAccounts);
+
+			SetBooksRintedScore(vBooks, vAccounts);
+
+			cout << "\nDeleting File Done Successfully\n";
+
+			do
+			{
+				DeleteMore = MyInput::ReadChar("\nDo you want to delete another account ? y/n");
+			} while (toupper(DeleteMore) != 'Y' && toupper(DeleteMore) != 'N');
+		}
+	} while (toupper(DeleteMore) == 'Y');
+		
+		
+
+	
+
+	
+
+
+}
+
+void PrintAccountRecord(stAccountInfo Account)
+{
+	cout << "| " << left << setw(25) << Account.UserName;
+	cout << "| " << left << setw(20) << Account.PASSWORD;
+	cout << "| " << left << setw(30) << Account.FullName;
+	cout << "| " << left << setw(15) << RoleToString(Account.Role);
+	
+	if (Account.Role != enRole::eManeger)
+	{
+		cout << "| " << left << setw(15) << Account.Balance << endl;
+		cout << "\nBooks Rented : " << endl << endl;
+		
+
+		for (int i = 0; i < Account.BooksRented.size() ;i++)
+		{
+			cout << "Book[" << i + 1 << "] : " << Account.BooksRented[i] << endl;
+		}
+		
+	}
+	else
+	{
+		cout << "| " << left << setw(15) << "---";
+	}
+	cout << endl;
+	
+}
+
+void PrintBooksRecord(stBookInfo Book)
+{
+	cout << "| " << left << setw(10) << Book.ID;
+	cout << "| " << left << setw(25) << Book.Name;
+	cout << "| " << left << setw(13) << Book.Price ;
+	cout << "| " << left << setw(12) << Book.RentalDailyPrice;
+	cout << "| " << left << setw(20) << Book.Author;
+	cout << "| " << left << setw(25) << Book.Genre;
+	cout << "| " << left << setw(25) << Book.YearOfPublication;
+	cout << endl;
+}
+
+stBookInfo ReadBookInfo(string BookID,bool IsForEditing = false)
+{
+	stBookInfo Book;
+	if (!IsForEditing)
+	{
+		Book.ID = MyInput::ReadString("\nBook's ID : ");
+	}
+	else
+	{
+		Book.ID = BookID;
+	}
+	Book.Name = MyInput::ReadString("Book's Name : ");
+	Book.Price = MyInput::ReadFloat("Price : ");
+	Book.RentalDailyPrice = MyInput::ReadFloat("Rental Price : ");
+	Book.Author = MyInput::ReadString("Author : ");
+	Book.Genre = MyInput::ReadString("Genere : ");
+	Book.YearOfPublication = MyInput::ReadString("Year of Publication : ");
+
+	return Book;
+
+}
+
+void PrintBookCard(stBookInfo Book)
+{
+	cout << "\n\n--------------------------------------------\n";
+	cout << "\nBook's ID   : " << Book.ID << endl;
+	cout << "Name         : " << Book.Name << endl;
+	cout << "Author       : " << Book.Author << endl;
+	cout << "Price        : " << Book.Price << endl;
+	cout << "Rental Price : " << Book.RentalDailyPrice << endl;
+	cout << "Genere       : " << Book.Genre << endl;
+	cout << "Year of Publication  : " << Book.YearOfPublication<< endl;
+	cout << "\n--------------------------------------------\n";
+
+}
+
+void SetBooksRintedScore(vector <stBookInfo> &vBooks,const vector <stAccountInfo> &vAccounts)
+{
+	//set Books Scores to Zero
+	for (stBookInfo& Book : vBooks)
+	{
+		Book.RintedScore = 0;
+	}
+
+
+	for (stAccountInfo Account : vAccounts)
+	{
+		for (string BookName : Account.BooksRented)
+		{
+			ScoreUpBookByName(vBooks, BookName);
+		}
+	}
+
+}
+
+void PrintHighlyRintedBooks(const vector <stBookInfo>& vBooks, short TopN)
+{
+	vector <bool> IsPrinted(vBooks.size(), false);
+	cout << "\n";
+	for (short i = 0; i < TopN; i++)
+	{
+		int MaxIndex = -1;
+		int MaxScore = -1;
+
+		for (short j = 0; j < vBooks.size(); j++)
+		{
+			if (!(IsPrinted[j]) && vBooks[j].RintedScore > MaxScore)
+			{
+				MaxScore = vBooks[j].RintedScore;
+				MaxIndex = j;
+			}
+		}
+		if (MaxIndex != -1)
+		{
+			cout << "[" << i + 1 << "] Highly Rinted Book : " << vBooks[MaxIndex].Name << " ,With Score : " << vBooks[MaxIndex].RintedScore << endl;
+			IsPrinted[MaxIndex] = true;
+		}
+		
+	}
+
+}
+
+bool EditBookInfoByID(string BookID , vector<stBookInfo> &vBooks)
+{
+	char Answer = 'Y';
+
+	for (stBookInfo& Book : vBooks)
+	{
+		if (Book.ID == BookID)
+		{
+			PrintBookCard(Book);
+			do
+			{
+
+				Answer = MyInput::ReadChar("\nAre you Sure you want to edit Book Information ? y/n ");
+
+			} while (toupper(Answer) != 'Y' && toupper(Answer) != 'N');
+
+			if (toupper(Answer) == 'Y')
+			{
+				Book = ReadBookInfo(BookID, true);
+				UpdateDataInFile(LipraryBooksDataFileName, vBooks);
+			}
+			return true;
+		}
+	}
+
+	return false;
+
+
+}
+
+double CalcBookProfit(int RintedScore, float DailyRintedPrice)
+{
+	return RintedScore * DailyRintedPrice;
+}
+
+double CalcBooksProfits(vector <stBookInfo>& vBooks)
+{
+	double Profits = 0;
+
+	for (stBookInfo& Book : vBooks)
+	{
+		Profits += CalcBookProfit(Book.RintedScore, Book.RentalDailyPrice);
+	}
+
+	return Profits;
+}
+
+void PrintUserRintedBooks(const vector <string> BooksRinted)
+{
+	cout << "\n";
+	for (short i = 0; i < BooksRinted.size(); i++)
+	{
+		cout << "Book [" << i + 1 << "] : " << BooksRinted[i] << endl;
+	}
+}
+
+bool IsValidBookID(const vector <stBookInfo>& vBooks, stBookInfo &Book, string BookID)
+{
+	for (stBookInfo B : vBooks)
+	{
+		if (B.ID == BookID)
+		{
+			Book = B;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UpdateAccountRecord(vector<stAccountInfo>& vAccounts, stAccountInfo Account)
+{
+	//update Accounts Vector's Singel Record 
+	
+	for (stAccountInfo& Acc : vAccounts)
+	{
+		if (Acc.UserName == Account.UserName)
+		{
+			Acc.Balance = Account.Balance;
+			Acc.BooksRented = Account.BooksRented;
+			Acc.FullName = Account.FullName;
+			Acc.PASSWORD = Account.PASSWORD;
+			Acc.Role = Account.Role;
+			return true;
+		}
+	}
+
+	return true;
+
+
+}
+
+bool IsExistUserName(const vector <stAccountInfo>& vAccounts, string UserName)
+{
+	
+	for (short i = 0; i < vAccounts.size(); i++)
+	{
+		if (vAccounts[i].UserName == UserName)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+enRole ReadRole()
+{
+	short Choise = MyInput::ReadShortInRange(1, 2, "\nPlease Choose your Role [1]Maneger , [2]User : ");
+	return (enRole)Choise;
+}
+
+stAccountInfo ReadAccountInfo(const vector <stAccountInfo> &vAccounts, const stAccountInfo &Account, bool IsForEdit = false)
+{
+	stAccountInfo NewAccount;
+
+	if (!IsForEdit)
+	{
+		//if we want to to sign up we need new user name so function is more reusable
+
+		NewAccount.UserName = MyInput::ReadString("User Name : ");
+		//check if user name is already exist in database
+		while (IsExistUserName(vAccounts, NewAccount.UserName))
+		{
+			cout << "User Name : [" << NewAccount.UserName << "] does already exist please try again\n";
+			NewAccount.UserName = MyInput::ReadString("User Name : ");
+		}
+
+	}
+	else
+	{
+		//if we want to edit account info we cant edit user name so we use the old one
+		//and put the same rinted books
+		NewAccount.UserName = Account.UserName;
+		NewAccount.BooksRented = Account.BooksRented;
+	}
+
+	NewAccount.FullName = MyInput::ReadString("Enter Your Full Name : ");
+	NewAccount.PASSWORD = MyInput::ReadString("Enter Password : ");
+
+	NewAccount.Role = ReadRole();
+
+	//Maneger does not have balance
+	if (NewAccount.Role == enRole::eUser)
+	{
+		NewAccount.Balance = MyInput::ReadFloat("Enter Your Balance : ");
+	}
+	
+	
+	
+
+	return NewAccount;
+
+
+}
+
+void RintBookProccess( vector<stAccountInfo> &vAccounts, stAccountInfo& Account, vector <stBookInfo>& vBooks, string BookID)
+{
+	stBookInfo Book;
+	char Answer = 'Y';
+
+
+	if (IsValidBookID(vBooks, Book , BookID))
+	{
+		PrintBookCard(Book);
+		do
+		{
+			Answer = MyInput::ReadChar("\nAre you sure that you want to Rint This Book ? y/n ");
+
+		} while (toupper(Answer) != 'Y' && toupper(Answer) != 'N');
+
+		if (toupper(Answer) == 'Y')
+		{
+			bool IsEnoughBalance = Account.Balance >= Book.RentalDailyPrice;
+
+			if (IsEnoughBalance)
+			{
+				Account.BooksRented.push_back(Book.Name);
+
+				//Refresh Books' Rented Score
+				SetBooksRintedScore(vBooks, vAccounts);
+
+				//Refresh Account Balance
+				Account.Balance -= Book.RentalDailyPrice;
+
+				//Refresh Accounts Vector Data
+				UpdateAccountRecord(vAccounts, Account);
+
+				//Refresh Accounts File Data
+				UpdateDataInFile(LipraryAccountsDataFileName, vAccounts);
+
+				cout << "\nBook Rented Successfully !" << endl;
+			}
+			else
+			{
+				cout << "Not Enough Money in Account! Your Balance = " << Account.Balance << " EGP";
+			}
+		}
+		
+	}
+	else
+	{
+		cout << "\n[" << BookID << "] NOT FOUND!" << endl;
+	}
+
+
+}
+
+void ShowBooksScreen(const vector <stBookInfo>& vBooks)
+{
+	cout << "\t\t\t\t\t\t\tBooks List (" << vBooks.size() << ") Book(s).";
+	cout << "\n_________________________________________________________________________________________________________________________________________\n";
+	cout << "\n| " << left << setw(10) << "Book ID";
+	cout << "| " << left << setw(25) << "Book Name";
+	cout << "| " << left << setw(13) << "Price (EGP)";
+	cout << "| " << left << setw(12) << "Rental Price";
+	cout << "| " << left << setw(20) << "Author";
+	cout << "| " << left << setw(25) << "Book Genere(Type)";
+	cout << "| " << left << setw(25) << "Publishing Year";
+	cout << "\n_________________________________________________________________________________________________________________________________________\n\n";
+
+	
+	for (stBookInfo Book : vBooks)
+	{
+		PrintBooksRecord(Book);
+	}
+}
+
+void ShowAccountsScreen(vector <stAccountInfo>& vAccounts)
+{
+	cout << "\t\t\tAccounts List (" << vAccounts.size() << ") Account(s).";
+	cout << "\n____________________________________________________________________________________________________________________________________________________\n";
+	cout << "\n| " << left << setw(25) << "Account UserName";
+	cout << "| " << left << setw(20) << "Account PASSWORD";
+	cout << "| " << left << setw(30) << "User Full Name";
+	cout << "| " << left << setw(15) << "Role";
+	cout << "| " << left << setw(15) << "Balance";
+	cout << "\n____________________________________________________________________________________________________________________________________________________\n\n";
+
+	
+	for (short i = 0; i < vAccounts.size(); i++)
+	{
+		PrintAccountRecord(vAccounts[i]);
+		if (i != vAccounts.size() - 1)
+		{
+			cout << "____________________________________________________________________________________________________________________________________________________\n\n";
+		}
+	}
+		
+	
+
+	cout << "\n____________________________________________________________________________________________________________________________________________________\n";
+
+}
+
+void ShowLoginScreen(vector <stAccountInfo>& vAccounts, vector <stBookInfo>& vBooks)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tLogin Screen\n";
+	cout << "=================================================\n";
+
+	string UserName, Password;
+
+	UserName = MyInput::ReadString("\nUser Name : ");
+	Password = MyInput::ReadString("\nPassword : ");
+
+	LoginScreenLogic(vAccounts,vBooks , UserName, Password);
+}
+
+void ShowSignUpScreen(vector <stAccountInfo>& vAccounts)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tSign Up Screen\n";
+	cout << "=================================================\n";
+
+	stAccountInfo Account;
+	Account = ReadAccountInfo(vAccounts, Account);
+
+	vAccounts.push_back(Account);
+	UpdateDataInFile(LipraryAccountsDataFileName, vAccounts);
+
+	cout << "\nAccount Maded Successfully. Press any key to go back to start screen" << endl;
+
+	
+
+}
+
+void ShowDeleteAccountScreen(vector <stAccountInfo>& vAccounts ,vector <stBookInfo>& vBooks, stAccountInfo &Account)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tDelete Account Screen\n";
+	cout << "=================================================\n";
+
+	DeleteAccountByUserName(vAccounts,vBooks ,Account);
+	
+}
+
+void ShowEditBooksScreen(vector <stBookInfo> &vBooks)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tEdit Books Screen\n";
+	cout << "=================================================\n";
+
+	string BookID = MyInput::ReadString("\nEnter Book's Id : ");
+	if ((EditBookInfoByID(BookID, vBooks)))
+	{
+		cout << "\n\nBook's Info Updated Successfully" << endl;
+	}
+	else
+	{
+		cout << "\n\"" << BookID << "\" Is not found!\n";
+	}
+
+
+}
+
+void ShowHighlyRintedBooksScreen(vector <stBookInfo>& vBooks , vector <stAccountInfo>& vAccounts)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tHighly Rinted Books Screen\n";
+	cout << "=================================================\n";
+
+	
+	PrintHighlyRintedBooks(vBooks, 5);
+}
+
+void ShowProfitsScreen(vector <stBookInfo>& vBooks)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tProfits Screen\n";
+	cout << "=================================================\n";
+
+	cout << "\n\nProfits : [" << CalcBooksProfits(vBooks) << "] EGP Per Day" << endl;
+
+}
+
+void ShowUserBalanceScreen(const stAccountInfo& Account)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tUser Balance Screen\n";
+	cout << "=================================================\n";
+
+	cout << "\nYour Balance = [" << Account.Balance << "] EGP." << endl;
+}
+
+void ShowUserRintedBooksScreen(const stAccountInfo& Account)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tUser Rinted Books Screen\n";
+	cout << "=================================================\n";
+
+	cout << "\n(" << Account.BooksRented.size() << ") Book(s) is/are Rinted " << endl;
+	PrintUserRintedBooks(Account.BooksRented);
+	
+}
+
+void ShowRintBookScreen(stAccountInfo& Account,  vector <stBookInfo>& vBooks , vector <stAccountInfo> &vAccounts)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tRint Book Screen\n";
+	cout << "=================================================\n";
+
+	string BookID = MyInput::ReadString("\nEnter The ID of Book that you want to Rint : ");
+
+	RintBookProccess(vAccounts , Account , vBooks , BookID);
+
+
+}
+
+void ShowEditAccountInfoScreen(vector <stAccountInfo>& vAccounts , stAccountInfo Account)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tEdit Account Screen\n";
+	cout << "=================================================\n";
+
+	stAccountInfo NewEditedAccount;
+	char Answer = 'Y';
+
+	NewEditedAccount = ReadAccountInfo(vAccounts , Account , true);
+
+	do
+	{
+
+		Answer = MyInput::ReadChar("\nAre you sure that you want to edit your Info ? y/n ");
+
+	} while (toupper(Answer) != 'Y' && toupper(Answer) != 'N');
+
+
+	if (toupper(Answer) == 'Y')
+	{
+		UpdateAccountRecord(vAccounts, NewEditedAccount);
+		UpdateDataInFile(LipraryAccountsDataFileName, vAccounts);
+		cout << "Data Updated Successfully" << endl;
+	}
+	
+
+
+}
+
+bool IsValidAccount(vector <stAccountInfo>& vAccounts, string UserName, string Password, stAccountInfo& Account)
+{
+
+	for (stAccountInfo& Acc : vAccounts)
+	{
+		if (Acc.UserName == UserName)
+		{
+			if (Acc.PASSWORD == Password)
+			{
+				Account = Acc;
+				return true;
+			}
+		}
+	}
+	return false;
+
+}
+
+enManegerControlScreen ManegerChoise()
+{
+	short Choise = MyInput::ReadShortInRange(1 , 7 , "\nPlease etner your choise [1 to 7] ");
+	return (enManegerControlScreen)Choise;
+}
+
+void ManegerControlPanel(vector <stAccountInfo>& vAccounts, vector <stBookInfo>& vBooks, stAccountInfo Account)
+{
+	enManegerControlScreen Choise = ManegerChoise();
+
+	system("cls");
+	switch (Choise)
+	{
+	case eShowAccounts:
+		ShowAccountsScreen(vAccounts);
+		GoToBackMenueMessege();
+		ShowManegerMainScreen(vAccounts , vBooks, Account);
+		break;
+	case eDeletAccount:
+		ShowDeleteAccountScreen(vAccounts, vBooks, Account);
+		GoToBackMenueMessege();
+		ShowManegerMainScreen(vAccounts, vBooks, Account);
+		break;
+	case eShowBooks:
+		ShowBooksScreen(vBooks);
+		GoToBackMenueMessege();
+		ShowManegerMainScreen(vAccounts, vBooks, Account);
+		break;
+	case eEditBooks:
+		ShowEditBooksScreen(vBooks);
+		GoToBackMenueMessege();
+		ShowManegerMainScreen(vAccounts , vBooks, Account);
+		break;
+	case eShowHighlyRintedBooks:
+		ShowHighlyRintedBooksScreen(vBooks, vAccounts);
+		GoToBackMenueMessege();
+		ShowManegerMainScreen(vAccounts, vBooks, Account);
+		break;
+	case eShowProfits:
+		ShowProfitsScreen(vBooks);
+		GoToBackMenueMessege();
+		ShowManegerMainScreen(vAccounts, vBooks, Account);
+		break;
+	case eLogout:
+
+		StartScreen(vAccounts , vBooks);
+		break;
+	}
+
+		
+	
+	
+}
+
+void ShowManegerMainScreen(vector <stAccountInfo>& vAccounts, vector <stBookInfo>& vBooks, stAccountInfo Account)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tMain Menue Screen\n";
+	cout << "=================================================\n";
+	cout << "\n[1] Show All Accounts\n";
+	cout << "[2] Delete Account[s]\n";
+	cout << "[3] Show Books' Info\n";
+	cout << "[4] Edit Books' Info\n";
+	cout << "[5] Show Highly Rinted Books\n";
+	cout << "[6] Show Profits (Per Day)\n";
+	cout << "[7] Log out\n";
+
+	ManegerControlPanel(vAccounts, vBooks, Account);
+}
+
+enUserScreen UserChoise()
+{
+	//Convert the input number to enUserScreen data type
+	short Choise = MyInput::ReadShortInRange(1,6, "\nPlease etner your choise [1 to 6] ");
+	return (enUserScreen)Choise;
+}
+
+void UserScreen(stAccountInfo& Account, vector <stBookInfo> vBooks, vector <stAccountInfo> &vAccounts)
+{
+	//Show User's Diffrent Screens
+	enUserScreen Choise = UserChoise();
+
+	system("cls");
+	switch (Choise)
+	{
+	case eShowLipraryBooks:
+		ShowBooksScreen(vBooks);
+		GoToBackMenueMessege();
+		ShowUserMainScreen(Account ,vBooks,vAccounts);
+		break;
+	case eMyBalance:
+		ShowUserBalanceScreen(Account);
+		GoToBackMenueMessege();
+		ShowUserMainScreen(Account, vBooks, vAccounts);
+		break;
+	case eShowMyBooks:
+		ShowUserRintedBooksScreen(Account);
+		GoToBackMenueMessege();
+		ShowUserMainScreen(Account, vBooks, vAccounts);
+		break;
+	case eRintBook:
+		ShowRintBookScreen(Account, vBooks, vAccounts);
+		GoToBackMenueMessege();
+		ShowUserMainScreen(Account, vBooks, vAccounts);
+		break;
+	case eEditAccountInfo:
+		ShowEditAccountInfoScreen(vAccounts, Account);
+		//when user updated his info he should to logout 
+		StartScreen(vAccounts, vBooks);
+		break;
+	case eUserLogout:
+		StartScreen(vAccounts, vBooks);
+		break;
+	}
+}
+
+void ShowUserMainScreen(stAccountInfo &Account , vector <stBookInfo> &vBooks ,vector <stAccountInfo> &vAccounts)
+{
+
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tMain Menue Screen\n";
+	cout << "=================================================\n";
+	cout << "\n[1]Show Books' Info\n";
+	cout << "[2]Own Balance\n";
+	cout << "[3]My Rinted Books\n";
+	cout << "[4]Rint A Book\n";
+	cout << "[5]Edit Account Info\n";
+	cout << "[6]Log out\n";
+
+	UserScreen(Account , vBooks , vAccounts);
+
+}
+
+void DecideWhichScreenToShow(vector <stAccountInfo>& vAccounts, vector <stBookInfo>& vBooks, stAccountInfo Account)
+{
+	switch (Account.Role)
+	{
+	case eManeger:
+		ShowManegerMainScreen(vAccounts ,vBooks , Account);
+		break;
+	case eUser:
+		ShowUserMainScreen(Account , vBooks , vAccounts);
+		break;
+	}
+}
+
+void LoginScreenLogic(vector <stAccountInfo>& vAccounts,vector <stBookInfo>& vBooks ,string UserName, string Password)
+{
+	stAccountInfo Account;
+	char IsSignUp = 'S';
+
+	bool IsThisIsValidAccount = IsValidAccount(vAccounts, UserName, Password, Account);
+
+	while (!(IsThisIsValidAccount))
+	{
+		cout << "\nUserName Or Password is wrong Please try again \n";
+
+		cout << "\nEnter any key to go back to login screen -If you want to sign up a new account Enter [S]-.\n";
+		cin >> IsSignUp;
+
+		if (toupper(IsSignUp) == 'S')
+		{
+			ShowSignUpScreen(vAccounts);
+			break;
+		}
+		else
+		{
+			ShowLoginScreen(vAccounts, vBooks);
+		}
+	}
+
+	if (IsThisIsValidAccount)
+	{
+		cout << "\nLogin Done Successfully , Press any key to go to Main Menue\n";
+		system("pause > 0");
+		DecideWhichScreenToShow(vAccounts, vBooks, Account);
+	}
+	
+
+}
+
+enStartScreen StartScreenChoise()
+{
+	short Choise = MyInput::ReadShortInRange(1 , 3 , "\nPlease enter your choise [1 to 3] : ");
+	return (enStartScreen)Choise;
+}
+
+void StartScreenPerforming(vector <stAccountInfo>& vAccounts, vector <stBookInfo>& vBooks)
+{
+	enStartScreen Choise = StartScreenChoise();
+
+	switch (Choise)
+	{
+	case eLogin:
+
+		ShowLoginScreen(vAccounts, vBooks);
+
+		break;
+	case eSiginUp:
+		ShowSignUpScreen(vAccounts);
+		system("pause > 0");
+		StartScreen(vAccounts, vBooks);
+		break;
+	default:
+		break;
+	}
+
+
+
+}
+
+void StartScreen(vector <stAccountInfo>& vAccounts, vector <stBookInfo>& vBooks)
+{
+	system("cls");
+	cout << "=================================================\n";
+	cout << "\t\tStart Screen\n";
+	cout << "=================================================\n";
+
+	cout << "\n[1] Login in\n";
+	cout << "\n[2] Sign up\n";
+	cout << "\n[3] Close the programme\n";
+	StartScreenPerforming(vAccounts , vBooks);
+
+}
+
+int main()
+{
+	
+	vector <stBookInfo> vBooks;
+	vector <stAccountInfo> vAccounts;
+
+
+	LoadDataFromAccountsFileToVector(LipraryAccountsDataFileName, vAccounts);
+	LoadDataFromBooksFileToVector(LipraryBooksDataFileName, vBooks);
+	SetBooksRintedScore(vBooks, vAccounts);
+	StartScreen(vAccounts,vBooks);
+
+
+	return 0;
+}
