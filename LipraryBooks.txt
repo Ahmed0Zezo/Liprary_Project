@@ -1,0 +1,20 @@
+A150#//#Ahmed#//#60.000000#//#10.000000#//#MOhammed#//#Romantic#//#1995
+B220#//#1984#//#8.990000#//#1.250000#//#George Orwell#//#Dystopian#//#1949
+C310#//#The Great Gatsby#//#12.500000#//#1.750000#//#F. Scott Fitzgerald#//#Classic#//#1925
+D180#//#Pride and Prejudice#//#9.500000#//#1.300000#//#Jane Austen#//#Romance#//#1813
+E275#//#Moby-Dick#//#14.000000#//#2.000000#//#Herman Melville#//#Adventure#//#1851
+F120#//#The Catcher in the Rye#//#10.000000#//#1.400000#//#J.D. Salinger#//#Fiction#//#1951
+G450#//#Jane Eyre#//#11.500000#//#1.600000#//#Charlotte Brontë#//#Gothic#//#1847
+H335#//#Wuthering Heights#//#13.000000#//#1.800000#//#Emily Brontë#//#Drama#//#1847
+I260#//#Little Women#//#10.250000#//#1.450000#//#Louisa May Alcott#//#Coming-of-age#//#1868
+J190#//#Brave New World#//#9.750000#//#1.350000#//#Aldous Huxley#//#Science Fiction#//#1932
+K340#//#The Hobbit#//#14.500000#//#2.100000#//#J.R.R. Tolkien#//#Fantasy#//#1937
+L150#//#Fahrenheit 451#//#8.750000#//#1.200000#//#Ray Bradbury#//#Dystopian#//#1953
+M120#//#Crime and Punishment#//#13.750000#//#1.950000#//#Fyodor Dostoevsky#//#Psychological#//#1866
+N400#//#War and Peace#//#16.000000#//#2.500000#//#Leo Tolstoy#//#Historical#//#1869
+O300#//#The Odyssey#//#11.000000#//#1.500000#//#Homer#//#Epic#//#700BC
+P290#//#The Iliad#//#10.500000#//#1.400000#//#Homer#//#Epic#//#750BC
+Q510#//#Les Misérables#//#15.000000#//#2.250000#//#Victor Hugo#//#Historical#//#1862
+R220#//#Anna Karenina#//#14.250000#//#2.000000#//#Leo Tolstoy#//#Drama#//#1878
+S330#//#The Alchemist#//#9.000000#//#1.250000#//#Paulo Coelho#//#Philosophical#//#1988
+T150#//#The Book Thief#//#10.750000#//#1.500000#//#Markus Zusak#//#Historical#//#2005
